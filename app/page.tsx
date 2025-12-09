@@ -1,29 +1,26 @@
 'use client';
 
 import { ShoppingCart, User, Star, MapPin, Phone, Facebook, Instagram, Twitter, Clock, ChevronRight } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
-interface CartItem {
-  id: number;
-  name: string;
-  description: string;
-  price: number;
-  oldPrice: number | null;
-  discount: number;
-  emoji: string;
-  rating: number;
-  quantity: number;
-}
+// Forzar renderizado dinámico
+export const dynamic = 'force-dynamic';
 
 export default function Home() {
   const router = useRouter();
+  type CartItem = Product & { quantity: number };
   const [cart, setCart] = useState<CartItem[]>([]);
   const [showCart, setShowCart] = useState(false);
-  const [currentUser] = useState(() => {
+  const [currentUser, setCurrentUser] = useState(null);
+
+  useEffect(() => {
+    // Verificar si hay sesión activa solo en el cliente
     const user = localStorage.getItem('currentUser');
-    return user ? JSON.parse(user) : null;
-  });
+    if (user) {
+      Promise.resolve().then(() => setCurrentUser(JSON.parse(user)));
+    }
+  }, []);
 
   const products = [
     {
@@ -88,7 +85,18 @@ export default function Home() {
     }
   ];
 
-  const addToCart = (product: typeof products[0]) => {
+  type Product = {
+    id: number;
+    name: string;
+    description: string;
+    price: number;
+    oldPrice: number | null;
+    discount: number;
+    emoji: string;
+    rating: number;
+  };
+
+  const addToCart = (product: Product) => {
     const existingItem = cart.find(item => item.id === product.id);
     if (existingItem) {
       setCart(cart.map(item => 
@@ -119,51 +127,56 @@ export default function Home() {
     return cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   };
 
+  const handleUserClick = () => {
+    if (currentUser) {
+      router.push('/perfil');
+    } else {
+      router.push('/login');
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-yellow-50 to-amber-50">
-      {/* Header */}
-      <header className="bg-white shadow-md sticky top-0 z-50">
-        <div className="container mx-auto px-4 sm:px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-2xl flex items-center justify-center shadow-lg transform rotate-12">
-                <span className="text-2xl sm:text-3xl -rotate-12">🌾</span>
-              </div>
-              <div>
-                <h1 className="text-xl sm:text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-600 to-orange-600">
-                  TRIGO DE ORO
-                </h1>
-                <p className="text-xs text-orange-600 font-semibold">Bakery & Café</p>
-              </div>
+    <div>
+      <header>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-2xl flex items-center justify-center shadow-lg transform rotate-12">
+              <span className="text-2xl sm:text-3xl -rotate-12">🌾</span>
             </div>
-            <nav className="hidden md:flex items-center space-x-6">
-              <a href="#" className="text-gray-700 font-semibold hover:text-orange-600 transition">Inicio</a>
-              <a href="#menu" className="text-gray-700 font-semibold hover:text-orange-600 transition">Menú</a>
-              <a href="#ofertas" className="text-gray-700 font-semibold hover:text-orange-600 transition">Ofertas</a>
-              <a href="#contacto" className="text-gray-700 font-semibold hover:text-orange-600 transition">Contacto</a>
-            </nav>
-            <div className="flex items-center space-x-4">
-              <button 
-                onClick={() => setShowCart(!showCart)}
-                className="relative bg-gradient-to-r from-yellow-400 to-orange-500 text-white p-2 rounded-full hover:shadow-lg transition transform hover:scale-110"
-              >
-                <ShoppingCart size={20} />
-                {cart.length > 0 && (
-                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                    {cart.length}
-                  </span>
-                )}
-              </button>
-              <button 
-                onClick={() => currentUser ? router.push('/perfil') : router.push('/login')}
-                className="bg-gray-100 p-2 rounded-full hover:bg-gray-200 transition transform hover:scale-110 relative group"
-              >
-                <User size={20} />
-                {currentUser && (
-                  <span className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>
-                )}
-              </button>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-600 to-orange-600">
+                TRIGO DE ORO
+              </h1>
+              <p className="text-xs text-orange-600 font-semibold">Bakery & Café</p>
             </div>
+          </div>
+          <nav className="hidden md:flex items-center space-x-6">
+            <a href="#" className="text-gray-700 font-semibold hover:text-orange-600 transition">Inicio</a>
+            <a href="#menu" className="text-gray-700 font-semibold hover:text-orange-600 transition">Menú</a>
+            <a href="#ofertas" className="text-gray-700 font-semibold hover:text-orange-600 transition">Ofertas</a>
+            <a href="#contacto" className="text-gray-700 font-semibold hover:text-orange-600 transition">Contacto</a>
+          </nav>
+          <div className="flex items-center space-x-4">
+            <button 
+              onClick={() => setShowCart(!showCart)}
+              className="relative bg-gradient-to-r from-yellow-400 to-orange-500 text-white p-2 rounded-full hover:shadow-lg transition transform hover:scale-110"
+            >
+              <ShoppingCart size={20} />
+              {cart.length > 0 && (
+                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                  {cart.length}
+                </span>
+              )}
+            </button>
+            <button 
+              onClick={handleUserClick}
+              className="bg-gray-100 p-2 rounded-full hover:bg-gray-200 transition transform hover:scale-110 relative group"
+            >
+              <User size={20} />
+              {currentUser && (
+                <span className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>
+              )}
+            </button>
           </div>
         </div>
       </header>
@@ -362,13 +375,13 @@ export default function Home() {
             <div>
               <h5 className="font-bold text-gray-800 mb-4">Síguenos</h5>
               <div className="flex space-x-4">
-                <button title="Facebook" aria-label="Facebook" className="w-10 h-10 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-full hover:shadow-lg transition transform hover:scale-110 flex items-center justify-center">
+                <button title="Facebook" className="w-10 h-10 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-full hover:shadow-lg transition transform hover:scale-110 flex items-center justify-center">
                   <Facebook size={20} />
                 </button>
-                <button title="Instagram" aria-label="Instagram" className="w-10 h-10 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-full hover:shadow-lg transition transform hover:scale-110 flex items-center justify-center">
+                <button title="Instagram" className="w-10 h-10 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-full hover:shadow-lg transition transform hover:scale-110 flex items-center justify-center">
                   <Instagram size={20} />
                 </button>
-                <button title="Twitter" aria-label="Twitter" className="w-10 h-10 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-full hover:shadow-lg transition transform hover:scale-110 flex items-center justify-center">
+                <button title="Twitter" className="w-10 h-10 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-full hover:shadow-lg transition transform hover:scale-110 flex items-center justify-center">
                   <Twitter size={20} />
                 </button>
               </div>
