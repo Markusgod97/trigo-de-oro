@@ -1,12 +1,29 @@
 'use client';
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { ShoppingCart, User, Star, MapPin, Phone, Mail, Facebook, Instagram, Twitter, Clock, ChevronRight } from 'lucide-react';
+import { ShoppingCart, User, Star, MapPin, Phone, Facebook, Instagram, Twitter, Clock, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+
+interface CartItem {
+  id: number;
+  name: string;
+  description: string;
+  price: number;
+  oldPrice: number | null;
+  discount: number;
+  emoji: string;
+  rating: number;
+  quantity: number;
+}
 
 export default function Home() {
-  const [cart, setCart] = useState<Array<typeof products[0] & { quantity: number }>>([]);
+  const router = useRouter();
+  const [cart, setCart] = useState<CartItem[]>([]);
   const [showCart, setShowCart] = useState(false);
+  const [currentUser] = useState(() => {
+    const user = localStorage.getItem('currentUser');
+    return user ? JSON.parse(user) : null;
+  });
 
   const products = [
     {
@@ -68,20 +85,10 @@ export default function Home() {
       discount: 14,
       emoji: '🥨',
       rating: 4.9
-    },
-    {
-      id: 7,
-      name: 'Cafe Latte',
-      description: 'Sabor y despertar',
-      price: 2500,
-      oldPrice: 1000,
-      discount: 10,
-      emoji: '☕',
-      rating: 4.5
     }
   ];
 
-  const addToCart = (product: { id: number; name: string; description: string; price: number; oldPrice: number; discount: number; emoji: string; rating: number; } | { id: number; name: string; description: string; price: number; oldPrice: null; discount: number; emoji: string; rating: number; }) => {
+  const addToCart = (product: typeof products[0]) => {
     const existingItem = cart.find(item => item.id === product.id);
     if (existingItem) {
       setCart(cart.map(item => 
@@ -147,8 +154,14 @@ export default function Home() {
                   </span>
                 )}
               </button>
-              <button className="bg-gray-100 p-2 rounded-full hover:bg-gray-200 transition transform hover:scale-110">
+              <button 
+                onClick={() => currentUser ? router.push('/perfil') : router.push('/login')}
+                className="bg-gray-100 p-2 rounded-full hover:bg-gray-200 transition transform hover:scale-110 relative group"
+              >
                 <User size={20} />
+                {currentUser && (
+                  <span className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>
+                )}
               </button>
             </div>
           </div>
@@ -349,13 +362,13 @@ export default function Home() {
             <div>
               <h5 className="font-bold text-gray-800 mb-4">Síguenos</h5>
               <div className="flex space-x-4">
-                <button className="w-10 h-10 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-full hover:shadow-lg transition transform hover:scale-110 flex items-center justify-center">
+                <button title="Facebook" aria-label="Facebook" className="w-10 h-10 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-full hover:shadow-lg transition transform hover:scale-110 flex items-center justify-center">
                   <Facebook size={20} />
                 </button>
-                <button className="w-10 h-10 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-full hover:shadow-lg transition transform hover:scale-110 flex items-center justify-center">
+                <button title="Instagram" aria-label="Instagram" className="w-10 h-10 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-full hover:shadow-lg transition transform hover:scale-110 flex items-center justify-center">
                   <Instagram size={20} />
                 </button>
-                <button className="w-10 h-10 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-full hover:shadow-lg transition transform hover:scale-110 flex items-center justify-center">
+                <button title="Twitter" aria-label="Twitter" className="w-10 h-10 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-full hover:shadow-lg transition transform hover:scale-110 flex items-center justify-center">
                   <Twitter size={20} />
                 </button>
               </div>
