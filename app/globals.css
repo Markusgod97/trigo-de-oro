@@ -9,9 +9,9 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
+@media (prefers-color-scheme: green) {
   :root {
-    --background: #0a0a0a;
+    --background: #d9dd8d;
     --foreground: #ededed;
   }
 }
