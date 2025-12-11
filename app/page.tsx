@@ -82,7 +82,18 @@ export default function Home() {
       discount: 14,
       emoji: '🥨',
       rating: 4.9
+    },
+    {
+      id: 7,
+      name: 'Cafe',
+      description: 'Tinto oscuro y claro',
+      price: 1500,
+      oldPrice: 1200,
+      discount: 10,
+      emoji: '🥨',
+      rating: 4.8
     }
+
   ];
 
   type Product = {
