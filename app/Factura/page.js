@@ -2,9 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { CheckCircle, Download, Share2, Printer, Mail, Home } from 'lucide-react';
+import { CheckCircle, Download, Share2, Printer, Home } from 'lucide-react';
 import Link from 'next/link';
-import { QRCodeSVG } from 'qrcode.react';
+import dynamic from 'next/dynamic';
+
+const QRCodeSVG = dynamic(
+  () => import('qrcode.react').then((mod) => mod.QRCodeSVG),
+  { ssr: false }
+);
 
 export default function FacturaPage() {
   const router = useRouter();
@@ -13,31 +18,35 @@ export default function FacturaPage() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
     
-    // Obtener datos de la factura del localStorage
-    const facturaId = searchParams.get('id');
-    
-    if (facturaId) {
-      const facturas = JSON.parse(localStorage.getItem('facturas') || '[]');
-      const facturaEncontrada = facturas.find(f => f.id === facturaId);
+    if (typeof window !== 'undefined') {
+      const facturaId = searchParams.get('id');
       
-      if (facturaEncontrada) {
-        setFactura(facturaEncontrada);
+      if (facturaId) {
+        const facturas = JSON.parse(localStorage.getItem('facturas') || '[]');
+        const facturaEncontrada = facturas.find(f => f.id === facturaId);
+        
+        if (facturaEncontrada) {
+          setFactura(facturaEncontrada);
+        } else {
+          router.push('/');
+        }
       } else {
         router.push('/');
       }
-    } else {
-      router.push('/');
     }
   }, [searchParams, router]);
 
   const handlePrint = () => {
-    window.print();
+    if (typeof window !== 'undefined') {
+      window.print();
+    }
   };
 
   const handleDownload = () => {
+    if (!factura) return;
+    
     const facturaText = `
 TRIGO DE ORO - Bakery & Café
 ================================
@@ -77,21 +86,25 @@ www.trigodeoro.com
     const a = document.createElement('a');
     a.href = url;
     a.download = `Factura_${factura.numero}.txt`;
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
   };
 
   const handleShare = async () => {
+    if (!factura) return;
+    
     const shareData = {
       title: `Factura ${factura.numero} - Trigo de Oro`,
       text: `Factura de compra por $${factura.total.toLocaleString()} en Trigo de Oro`,
-      url: window.location.href
+      url: typeof window !== 'undefined' ? window.location.href : ''
     };
 
     try {
       if (navigator.share) {
         await navigator.share(shareData);
       } else {
-        // Copiar al portapapeles
         await navigator.clipboard.writeText(window.location.href);
         alert('Enlace copiado al portapapeles');
       }
@@ -121,16 +134,14 @@ www.trigodeoro.com
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-yellow-50 to-amber-50 py-12 px-4">
       <div className="container mx-auto max-w-4xl">
-        {/* Mensaje de Éxito */}
-        <div className="text-center mb-8 animate-fadeIn">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-green-500 rounded-full mb-4 shadow-lg animate-bounce">
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-green-500 rounded-full mb-4 shadow-lg">
             <CheckCircle size={48} className="text-white" />
           </div>
           <h1 className="text-4xl font-black text-gray-800 mb-2">¡Compra Exitosa!</h1>
           <p className="text-gray-600 text-lg">Tu pedido ha sido procesado correctamente</p>
         </div>
 
-        {/* Botones de Acción - No imprimibles */}
         <div className="flex flex-wrap justify-center gap-4 mb-8 print:hidden">
           <button
             onClick={handlePrint}
@@ -155,9 +166,7 @@ www.trigodeoro.com
           </button>
         </div>
 
-        {/* Factura */}
         <div className="bg-white rounded-3xl shadow-2xl overflow-hidden">
-          {/* Header de la Factura */}
           <div className="bg-gradient-to-r from-yellow-400 via-orange-400 to-orange-500 p-8 text-white">
             <div className="flex items-center justify-between flex-wrap gap-4">
               <div className="flex items-center space-x-4">
@@ -176,11 +185,10 @@ www.trigodeoro.com
             </div>
           </div>
 
-          {/* Información del Cliente y Empresa */}
           <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-8 border-b border-gray-200">
             <div>
               <h3 className="font-bold text-gray-800 mb-4 text-lg">Información de la Empresa</h3>
-              <div className="space-y-2 text-gray-600">
+              <div className="space-y-2 text-gray-600 text-sm">
                 <p><strong>Razón Social:</strong> Trigo de Oro S.A.S.</p>
                 <p><strong>NIT:</strong> 900.123.456-7</p>
                 <p><strong>Dirección:</strong> Calle 72 #10-34, Bogotá</p>
@@ -190,7 +198,7 @@ www.trigodeoro.com
             </div>
             <div>
               <h3 className="font-bold text-gray-800 mb-4 text-lg">Información del Cliente</h3>
-              <div className="space-y-2 text-gray-600">
+              <div className="space-y-2 text-gray-600 text-sm">
                 <p><strong>Nombre:</strong> {factura.cliente.nombre}</p>
                 <p><strong>Email:</strong> {factura.cliente.email}</p>
                 <p><strong>Teléfono:</strong> {factura.cliente.telefono}</p>
@@ -200,7 +208,6 @@ www.trigodeoro.com
             </div>
           </div>
 
-          {/* Tabla de Productos */}
           <div className="p-8 border-b border-gray-200">
             <h3 className="font-bold text-gray-800 mb-4 text-lg">Detalle de Productos</h3>
             <div className="overflow-x-auto">
@@ -209,21 +216,18 @@ www.trigodeoro.com
                   <tr className="bg-gray-50 border-b-2 border-orange-500">
                     <th className="text-left p-3 font-bold text-gray-700">Cant.</th>
                     <th className="text-left p-3 font-bold text-gray-700">Producto</th>
-                    <th className="text-right p-3 font-bold text-gray-700">Precio Unit.</th>
+                    <th className="text-right p-3 font-bold text-gray-700">Precio</th>
                     <th className="text-right p-3 font-bold text-gray-700">Total</th>
                   </tr>
                 </thead>
                 <tbody>
                   {factura.items.map((item, index) => (
-                    <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
+                    <tr key={index} className="border-b border-gray-100">
                       <td className="p-3 text-gray-800">{item.quantity}</td>
                       <td className="p-3">
                         <div className="flex items-center space-x-3">
                           <span className="text-2xl">{item.emoji}</span>
-                          <div>
-                            <p className="font-semibold text-gray-800">{item.name}</p>
-                            <p className="text-sm text-gray-500">{item.description}</p>
-                          </div>
+                          <span className="font-semibold text-gray-800">{item.name}</span>
                         </div>
                       </td>
                       <td className="p-3 text-right text-gray-800">${item.price.toLocaleString()}</td>
@@ -237,9 +241,7 @@ www.trigodeoro.com
             </div>
           </div>
 
-          {/* Totales y QR */}
           <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* Resumen de Totales */}
             <div className="space-y-4">
               <h3 className="font-bold text-gray-800 mb-4 text-lg">Resumen de Pago</h3>
               <div className="space-y-3">
@@ -264,18 +266,17 @@ www.trigodeoro.com
               </div>
             </div>
 
-            {/* Código QR */}
             <div className="flex flex-col items-center justify-center">
               <h3 className="font-bold text-gray-800 mb-4 text-lg">Código QR</h3>
               <div className="bg-white p-6 rounded-2xl shadow-lg border-4 border-orange-400">
-                <QRCodeSVG
-                  value={qrData}
-                  size={200}
-                  level="H"
-                  includeMargin={true}
-                  bgColor="#ffffff"
-                  fgColor="#000000"
-                />
+                {mounted && (
+                  <QRCodeSVG
+                    value={qrData}
+                    size={200}
+                    level="H"
+                    includeMargin={true}
+                  />
+                )}
               </div>
               <p className="text-xs text-gray-500 mt-3 text-center max-w-xs">
                 Escanea este código para verificar tu factura
@@ -283,47 +284,25 @@ www.trigodeoro.com
             </div>
           </div>
 
-          {/* Footer */}
           <div className="bg-gray-50 p-6 text-center border-t border-gray-200">
-            <p className="text-sm text-gray-600 mb-2">
-              ¡Gracias por tu compra en Trigo de Oro!
-            </p>
+            <p className="text-sm text-gray-600 mb-2">¡Gracias por tu compra en Trigo de Oro!</p>
             <p className="text-xs text-gray-500">
               www.trigodeoro.com | info@trigodeoro.com | (601) 234-5678
-            </p>
-            <p className="text-xs text-gray-400 mt-2">
-              Esta es una factura electrónica válida ante la DIAN
             </p>
           </div>
         </div>
 
-        {/* Botón Volver al Inicio */}
         <div className="text-center mt-8 print:hidden">
           <Link
             href="/"
-            className="inline-flex items-center space-x-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-8 py-4 rounded-full font-bold text-lg hover:shadow-xl transition transform hover:-translate-y-1"
+            className="inline-flex items-center space-x-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-8 py-4 rounded-full font-bold text-lg hover:shadow-xl transition"
           >
             <Home size={24} />
             <span>Volver al Inicio</span>
           </Link>
         </div>
-
-        {/* Información adicional */}
-        <div className="mt-8 bg-blue-50 rounded-2xl p-6 print:hidden">
-          <h4 className="font-bold text-blue-900 mb-3 flex items-center space-x-2">
-            <Mail size={20} />
-            <span>Información Importante</span>
-          </h4>
-          <ul className="space-y-2 text-sm text-blue-800">
-            <li>✓ Una copia de esta factura ha sido enviada a tu correo electrónico</li>
-            <li>✓ Tu pedido será preparado en los próximos 10-20 minutos</li>
-            <li>✓ Recibirás una notificación cuando esté listo para recoger</li>
-            <li>✓ Puedes presentar el código QR en la tienda para agilizar el proceso</li>
-          </ul>
-        </div>
       </div>
 
-      {/* Estilos para impresión */}
       <style jsx global>{`
         @media print {
           body {
