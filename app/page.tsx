@@ -45,27 +45,37 @@ export default function Home() {
   }, []);
 
   // Efecto para cargar datos del localStorage
-  useEffect(() => {
-    if (!isClient) return;
-    
-    try {
-      const savedCart = localStorage.getItem('cart');
-      if (savedCart) {
-        setCart(JSON.parse(savedCart));
+  // Efecto para cargar datos del localStorage
+useEffect(() => {
+  if (!isClient) return;
+  
+  const loadData = () => {
+    // Cargar carrito
+    const cartData = localStorage.getItem('cart');
+    if (cartData) {
+      try {
+        const parsedCart = JSON.parse(cartData);
+        setCart(parsedCart);
+      } catch (error) {
+        console.error('Error parsing cart:', error);
       }
-    } catch (error) {
-      console.error('Error cargando carrito:', error);
     }
     
-    try {
-      const user = localStorage.getItem('currentUser');
-      if (user) {
-        setCurrentUser(JSON.parse(user));
+    // Cargar usuario
+    const userData = localStorage.getItem('currentUser');
+    if (userData) {
+      try {
+        const parsedUser = JSON.parse(userData);
+        setCurrentUser(parsedUser);
+      } catch (error) {
+        console.error('Error parsing user:', error);
       }
-    } catch (error) {
-      console.error('Error cargando usuario:', error);
     }
-  }, [isClient]);
+  };
+  // Ejecutar con un pequeño delay para evitar problemas
+  const timer = setTimeout(loadData, 0);
+  return () => clearTimeout(timer);
+}, [isClient]);
 
   // Guardar carrito cuando cambie
   useEffect(() => {
@@ -500,13 +510,30 @@ export default function Home() {
             <div>
               <h5 className="font-bold text-gray-800 mb-4">Síguenos</h5>
               <div className="flex space-x-4">
-                <a href="#" className="w-10 h-10 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-full hover:shadow-lg transition transform hover:scale-110 flex items-center justify-center">
-                  <Facebook size={20} />
+                <a
+                 href="https://www.facebook.com/[tu-nombre-de-usuario]"
+                 className="w-10 h-10 bg-blue-700 rounded-full flex items-center justify-center text-white"
+                 aria-label="Enlace a nuestra página de Facebook"
+                 target="_blank"
+                 rel="noopener noreferrer"
+                  >
+                 <Facebook size={20} />
                 </a>
-                <a href="#" className="w-10 h-10 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-full hover:shadow-lg transition transform hover:scale-110 flex items-center justify-center">
+                <a href="https://www.instagram.com/[tu-nombre-de-usuario]"
+                   className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white"
+                   aria-label="Enlace a nuestro perfil de Instagram"
+                   target="_blank"
+                  rel="noopener noreferrer"
+                >
                   <Instagram size={20} />
                 </a>
-                <a href="#" className="w-10 h-10 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-full hover:shadow-lg transition transform hover:scale-110 flex items-center justify-center">
+                <a
+                  href="https://twitter.com/[tu-nombre-de-usuario]"
+                   className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white"
+                   aria-label="Enlace a nuestro perfil de X (anteriormente Twitter)"
+                   target="_blank"
+                   rel="noopener noreferrer"
+                >
                   <Twitter size={20} />
                 </a>
               </div>

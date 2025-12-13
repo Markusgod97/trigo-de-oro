@@ -40,32 +40,32 @@ export default function FacturaPage() {
 
   const handleDownloadPDF = async () => {
     if (!factura) return;
+    const  element = document.getElementById('factura-content');
+    if (!element) return;
+ try {
+    const { jsPDF } = await import('jspdf');
+    const html2canvas = (await import('html2canvas')).default;
+    const canvas = await html2canvas(element, {
+      useCORS: true,
+      background: '#ffffff',
+      logging: false,
+    });
     
-    try {
-      const { jsPDF } = await import('jspdf');
-      const html2canvas = (await import('html2canvas')).default;
-      
-      const element = document.getElementById('factura-content');
-      if (!element) return;
-      
-      const canvas = await html2canvas(element, {
-        scale  : 2,
-        useCORS: true,
-        logging: false
-      });
-      
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = 210;
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`factura-${factura.numero}.pdf`);
-    } catch (error) {
-      console.error('Error generando PDF:', error);
-      alert('Error al generar PDF. Asegúrate de tener las dependencias instaladas.');
-    }
-  };
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    
+    // Calcular dimensiones manteniendo proporción
+    const imgWidth = 210; // A4 width in mm
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    
+    pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+    pdf.save(`factura-${factura.numero}.pdf`);
+  } catch (error) {
+    console.error('Error generando PDF:', error);
+    // Fallback: abrir diálogo de impresión
+    window.print();
+  }
+};
 
   const handleShare = async () => {
     if (!factura) return;

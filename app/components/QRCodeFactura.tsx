@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
+import Image from 'next/image';
 
 interface QRCodeFacturaProps {
   data: string;
@@ -37,23 +38,30 @@ export default function QRCodeFactura({
 
     generateQR();
   }, [data, size]);
+  const loadingContainerStyle = {
+    width: size,
+    height: size,   
+};
 
   if (!qrCodeUrl) {
     return (
-      <div className={`flex items-center justify-center ${className}`} style={{ width: size, height: size }}>
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600"></div>
+      <div 
+        className={`flex items-center justify-center bg-gray-200 rounded-lg ${className}`} 
+        style={loadingContainerStyle}
+      >
+        <p className="text-gray-500">Generando código QR...</p>
       </div>
-    );
-  }
-
+    );   
+  };
   return (
     <div className={`flex flex-col items-center ${className}`}>
-      <img 
+      <Image 
         src={qrCodeUrl} 
-        alt="Código QR de la factura" 
+        alt="Código QR de la factura"   
         width={size}
         height={size}
         className="rounded-lg border-4 border-white shadow-lg"
+        unoptimized
       />
       <p className="mt-2 text-xs text-gray-500 text-center">
         Escanee para verificar la factura
