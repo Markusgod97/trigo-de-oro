@@ -1,28 +1,81 @@
+
 'use client';
 
 import { ShoppingCart, User, Star, MapPin, Phone, Facebook, Instagram, Twitter, Clock, ChevronRight } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { crearFactura, guardarFactura } from './utils/facturacion';
 
-// Forzar renderizado dinámico
-export const dynamic = 'force-dynamic';
+// Definir tipos
+interface Product {
+  id: number;
+  name: string;
+  description: string;
+  price: number;
+  oldPrice: number | null;
+  discount: number;
+  emoji: string;
+  rating: number;
+}
+
+interface CartItem extends Product {
+  quantity: number;
+}
+
+interface UserData {
+  name: string;
+  email: string;
+  phone?: string;
+}
 
 export default function Home() {
   const router = useRouter();
-  type CartItem = Product & { quantity: number };
   const [cart, setCart] = useState<CartItem[]>([]);
   const [showCart, setShowCart] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
+  const [currentUser, setCurrentUser] = useState<UserData | null>(null);
+  const [isClient, setIsClient] = useState(false);
 
+  // Efecto para marcar que estamos en el cliente
   useEffect(() => {
-    // Verificar si hay sesión activa solo en el cliente
-    const user = localStorage.getItem('currentUser');
-    if (user) {
-      Promise.resolve().then(() => setCurrentUser(JSON.parse(user)));
-    }
+    const timer = setTimeout(() => {
+      setIsClient(true);
+    }, 0);
+    
+    return () => clearTimeout(timer);
   }, []);
 
-  const products = [
+  // Efecto para cargar datos del localStorage
+  useEffect(() => {
+    if (!isClient) return;
+    
+    try {
+      const savedCart = localStorage.getItem('cart');
+      if (savedCart) {
+        setCart(JSON.parse(savedCart));
+      }
+    } catch (error) {
+      console.error('Error cargando carrito:', error);
+    }
+    
+    try {
+      const user = localStorage.getItem('currentUser');
+      if (user) {
+        setCurrentUser(JSON.parse(user));
+      }
+    } catch (error) {
+      console.error('Error cargando usuario:', error);
+    }
+  }, [isClient]);
+
+  // Guardar carrito cuando cambie
+  useEffect(() => {
+    if (isClient) {
+      localStorage.setItem('cart', JSON.stringify(cart));
+    }
+  }, [cart, isClient]);
+
+  // Datos de productos
+  const products: Product[] = [
     {
       id: 1,
       name: 'Pan Integral',
@@ -82,37 +135,16 @@ export default function Home() {
       discount: 14,
       emoji: '🥨',
       rating: 4.9
-    },
-    {
-      id: 7,
-      name: 'Cafe',
-      description: 'Tinto oscuro y claro',
-      price: 1500,
-      oldPrice: 1200,
-      discount: 10,
-      emoji: '🥨',
-      rating: 4.8
     }
-
   ];
 
-  type Product = {
-    id: number;
-    name: string;
-    description: string;
-    price: number;
-    oldPrice: number | null;
-    discount: number;
-    emoji: string;
-    rating: number;
-  };
-
+  // Funciones del carrito
   const addToCart = (product: Product) => {
     const existingItem = cart.find(item => item.id === product.id);
     if (existingItem) {
       setCart(cart.map(item => 
         item.id === product.id 
-          ? { ...item, quantity: item.quantity + 1 }
+          ? { ...item, quantity: (item.quantity || 0) + 1 }
           : item
       ));
     } else {
@@ -125,17 +157,25 @@ export default function Home() {
   };
 
   const updateQuantity = (productId: number, change: number) => {
-    setCart(cart.map(item => {
-      if (item.id === productId) {
-        const newQuantity = item.quantity + change;
-        return newQuantity > 0 ? { ...item, quantity: newQuantity } : item;
-      }
-      return item;
-    }).filter(item => item.quantity > 0));
+    setCart(prevCart => 
+      prevCart
+        .map(item => {
+          if (item.id === productId) {
+            const currentQuantity = item.quantity || 0;
+            const newQuantity = currentQuantity + change;
+            return { ...item, quantity: Math.max(0, newQuantity) };
+          }
+          return item;
+        })
+        .filter(item => (item.quantity || 0) > 0)
+    );
   };
 
   const getTotal = () => {
-    return cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    return cart.reduce((sum, item) => {
+      const quantity = item.quantity || 0;
+      return sum + (item.price * quantity);
+    }, 0);
   };
 
   const handleUserClick = () => {
@@ -146,48 +186,110 @@ export default function Home() {
     }
   };
 
+  const handleCheckout = () => {
+    // Verificar que haya items en el carrito
+    if (cart.length === 0) {
+      alert('Tu carrito está vacío');
+      return;
+    }
+
+    // Verificar que el usuario esté logueado
+    if (!currentUser) {
+      alert('Debes iniciar sesión para realizar una compra');
+      router.push('/login');
+      return;
+    }
+
+    // Convertir productos del carrito a items de factura
+    const facturaItems = cart.map(item => ({
+      id: item.id,
+      name: item.name,
+      price: item.price,
+      quantity: item.quantity || 1,
+      emoji: item.emoji,
+      subtotal: item.price * (item.quantity || 1)
+    }));
+
+    // Crear factura
+    const factura = crearFactura(
+      {
+        nombre: currentUser.name,
+        email: currentUser.email,
+        telefono: currentUser.phone || 'No especificado',
+        identificacion: `CC${Math.floor(10000000 + Math.random() * 90000000)}`
+      },
+      facturaItems,
+      'Tarjeta de Crédito'
+    );
+
+    // Guardar factura
+    guardarFactura(factura);
+
+    // Limpiar carrito
+    setCart([]);
+    setShowCart(false);
+
+    // Redirigir a la página de factura
+    router.push(`/factura?id=${factura.id}`);
+  };
+
+  // Loading state
+  if (!isClient) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-yellow-50 to-amber-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="mt-4 text-gray-600">Cargando...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div>
-      <header>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-2xl flex items-center justify-center shadow-lg transform rotate-12">
-              <span className="text-2xl sm:text-3xl -rotate-12">🌾</span>
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-yellow-50 to-amber-50">
+      {/* Header */}
+      <header className="bg-white shadow-md sticky top-0 z-50">
+        <div className="container mx-auto px-4 sm:px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-2xl flex items-center justify-center shadow-lg transform rotate-12">
+                <span className="text-2xl sm:text-3xl -rotate-12">🌾</span>
+              </div>
+              <div>
+                <h1 className="text-xl sm:text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-600 to-orange-600">
+                  TRIGO DE ORO
+                </h1>
+                <p className="text-xs text-orange-600 font-semibold">Bakery & Café</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-xl sm:text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-600 to-orange-600">
-                TRIGO DE ORO
-              </h1>
-              <p className="text-xs text-orange-600 font-semibold">Bakery & Café</p>
+            <nav className="hidden md:flex items-center space-x-6">
+              <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="text-gray-700 font-semibold hover:text-orange-600 transition">Inicio</button>
+              <button onClick={() => document.getElementById('menu')?.scrollIntoView({ behavior: 'smooth' })} className="text-gray-700 font-semibold hover:text-orange-600 transition">Menú</button>
+              <button onClick={() => document.getElementById('ofertas')?.scrollIntoView({ behavior: 'smooth' })} className="text-gray-700 font-semibold hover:text-orange-600 transition">Ofertas</button>
+              <button onClick={() => document.getElementById('contacto')?.scrollIntoView({ behavior: 'smooth' })} className="text-gray-700 font-semibold hover:text-orange-600 transition">Contacto</button>
+            </nav>
+            <div className="flex items-center space-x-4">
+              <button 
+                onClick={() => setShowCart(!showCart)}
+                className="relative bg-gradient-to-r from-yellow-400 to-orange-500 text-white p-2 rounded-full hover:shadow-lg transition transform hover:scale-110"
+              >
+                <ShoppingCart size={20} />
+                {cart.length > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                    {cart.length}
+                  </span>
+                )}
+              </button>
+              <button 
+                onClick={handleUserClick}
+                className="bg-gray-100 p-2 rounded-full hover:bg-gray-200 transition transform hover:scale-110 relative group"
+              >
+                <User size={20} />
+                {currentUser && (
+                  <span className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>
+                )}
+              </button>
             </div>
-          </div>
-          <nav className="hidden md:flex items-center space-x-6">
-            <a href="#" className="text-gray-700 font-semibold hover:text-orange-600 transition">Inicio</a>
-            <a href="#menu" className="text-gray-700 font-semibold hover:text-orange-600 transition">Menú</a>
-            <a href="#ofertas" className="text-gray-700 font-semibold hover:text-orange-600 transition">Ofertas</a>
-            <a href="#contacto" className="text-gray-700 font-semibold hover:text-orange-600 transition">Contacto</a>
-          </nav>
-          <div className="flex items-center space-x-4">
-            <button 
-              onClick={() => setShowCart(!showCart)}
-              className="relative bg-gradient-to-r from-yellow-400 to-orange-500 text-white p-2 rounded-full hover:shadow-lg transition transform hover:scale-110"
-            >
-              <ShoppingCart size={20} />
-              {cart.length > 0 && (
-                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                  {cart.length}
-                </span>
-              )}
-            </button>
-            <button 
-              onClick={handleUserClick}
-              className="bg-gray-100 p-2 rounded-full hover:bg-gray-200 transition transform hover:scale-110 relative group"
-            >
-              <User size={20} />
-              {currentUser && (
-                <span className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>
-              )}
-            </button>
           </div>
         </div>
       </header>
@@ -239,7 +341,7 @@ export default function Home() {
                           >
                             -
                           </button>
-                          <span className="font-bold w-8 text-center">{item.quantity}</span>
+                          <span className="font-bold w-8 text-center">{item.quantity || 0}</span>
                           <button 
                             onClick={() => updateQuantity(item.id, 1)}
                             className="bg-orange-500 text-white w-8 h-8 rounded-full font-bold hover:bg-orange-600"
@@ -248,7 +350,7 @@ export default function Home() {
                           </button>
                         </div>
                         <span className="font-bold text-orange-600">
-                          ${(item.price * item.quantity).toLocaleString()}
+                          ${((item.price || 0) * (item.quantity || 0)).toLocaleString()}
                         </span>
                       </div>
                     </div>
@@ -262,7 +364,10 @@ export default function Home() {
                   </div>
                 </div>
                 
-                <button className="w-full bg-gradient-to-r from-yellow-400 to-orange-500 text-white py-4 rounded-full font-bold text-lg hover:shadow-xl transition transform hover:-translate-y-1">
+                <button 
+                  onClick={handleCheckout}
+                  className="w-full bg-gradient-to-r from-yellow-400 to-orange-500 text-white py-4 rounded-full font-bold text-lg hover:shadow-xl transition transform hover:-translate-y-1"
+                >
                   Proceder al Pago
                 </button>
               </>
@@ -282,8 +387,11 @@ export default function Home() {
             </span>
             <h2 className="text-3xl sm:text-5xl font-black mb-4 leading-tight">El Mejor Pan de Bogotá</h2>
             <p className="text-lg sm:text-xl mb-8 text-orange-50">Ingredientes premium, horneado fresco cada día</p>
-            <button className="bg-white text-orange-600 px-6 sm:px-8 py-3 sm:py-4 rounded-full font-bold text-base sm:text-lg hover:shadow-xl transition transform hover:-translate-y-1 flex items-center space-x-2">
-              <span>Pide Ahora</span>
+            <button 
+              onClick={() => document.getElementById('menu')?.scrollIntoView({ behavior: 'smooth' })}
+              className="bg-white text-orange-600 px-6 sm:px-8 py-3 sm:py-4 rounded-full font-bold text-base sm:text-lg hover:shadow-xl transition transform hover:-translate-y-1 flex items-center space-x-2"
+            >
+              <span>Ver Menú</span>
               <ChevronRight size={20} />
             </button>
           </div>
@@ -294,8 +402,11 @@ export default function Home() {
       <section id="menu" className="container mx-auto px-4 sm:px-6 py-16">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-10 gap-4">
           <h3 className="text-3xl sm:text-4xl font-black text-gray-800">Más Vendidos</h3>
-          <button className="text-orange-600 font-bold hover:text-orange-700 transition flex items-center space-x-1">
-            <span>Ver Todos</span>
+          <button 
+            onClick={() => setShowCart(true)}
+            className="text-orange-600 font-bold hover:text-orange-700 transition flex items-center space-x-1"
+          >
+            <span>Ver Carrito ({cart.length})</span>
             <ChevronRight size={20} />
           </button>
         </div>
@@ -348,8 +459,11 @@ export default function Home() {
         <div className="bg-gradient-to-r from-orange-500 to-yellow-400 rounded-3xl p-8 sm:p-12 text-white text-center shadow-2xl">
           <h3 className="text-3xl sm:text-4xl font-black mb-4">¡Descuentos Especiales!</h3>
           <p className="text-lg sm:text-xl mb-6 text-orange-50">Hasta 20% OFF en productos seleccionados</p>
-          <button className="bg-white text-orange-600 px-6 sm:px-8 py-3 sm:py-4 rounded-full font-bold text-base sm:text-lg hover:shadow-xl transition transform hover:-translate-y-1">
-            Ver Ofertas
+          <button 
+            onClick={() => setShowCart(true)}
+            className="bg-white text-orange-600 px-6 sm:px-8 py-3 sm:py-4 rounded-full font-bold text-base sm:text-lg hover:shadow-xl transition transform hover:-translate-y-1"
+          >
+            Ver Carrito
           </button>
         </div>
       </section>
@@ -386,15 +500,15 @@ export default function Home() {
             <div>
               <h5 className="font-bold text-gray-800 mb-4">Síguenos</h5>
               <div className="flex space-x-4">
-                <button title="Facebook" className="w-10 h-10 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-full hover:shadow-lg transition transform hover:scale-110 flex items-center justify-center">
+                <a href="#" className="w-10 h-10 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-full hover:shadow-lg transition transform hover:scale-110 flex items-center justify-center">
                   <Facebook size={20} />
-                </button>
-                <button title="Instagram" className="w-10 h-10 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-full hover:shadow-lg transition transform hover:scale-110 flex items-center justify-center">
+                </a>
+                <a href="#" className="w-10 h-10 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-full hover:shadow-lg transition transform hover:scale-110 flex items-center justify-center">
                   <Instagram size={20} />
-                </button>
-                <button title="Twitter" className="w-10 h-10 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-full hover:shadow-lg transition transform hover:scale-110 flex items-center justify-center">
+                </a>
+                <a href="#" className="w-10 h-10 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-full hover:shadow-lg transition transform hover:scale-110 flex items-center justify-center">
                   <Twitter size={20} />
-                </button>
+                </a>
               </div>
             </div>
           </div>
